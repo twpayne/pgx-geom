@@ -1,0 +1,32 @@
+name: main
+on:
+  pull_request:
+  push:
+    branches:
+    - master
+    tags:
+    - v*
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: install-dependencies
+      run: |
+        sudo apt-get install -y postgis postgresql
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+    - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491
+    - run: go build ./...
+    - name: init-database
+      run: |
+        sudo systemctl start postgresql.service
+        sudo -u postgres createuser -s "${USER}"
+        createdb "${USER}"
+    - run: go test ./...
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+    - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491
+    - uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804
+      with:
+        version: v1.56.2
