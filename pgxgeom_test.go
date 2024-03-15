@@ -2,6 +2,7 @@ package pgxgeom_test
 
 import (
 	"context"
+	"encoding/binary"
 	"strconv"
 	"testing"
 
@@ -90,7 +91,7 @@ func TestCodecScanValue(t *testing.T) {
 
 func mustEWKB(tb testing.TB, g geom.T) []byte {
 	tb.Helper()
-	data, err := ewkb.Marshal(g, pgxgeom.NativeEndian)
+	data, err := ewkb.Marshal(g, binary.LittleEndian)
 	assert.NoError(tb, err)
 	return data
 }

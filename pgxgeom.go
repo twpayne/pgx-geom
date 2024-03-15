@@ -33,18 +33,18 @@ type binaryScanPlan struct{}
 // [github.com/twpayne/go-geom.T] types in text format.
 type textScanPlan struct{}
 
-// NativeEndian is the host's native byte order. We have to determine this with
+// nativeEndian is the host's native byte order. We have to determine this with
 // a runtime test in init() because binary.NativeEndian is a separate value to
 // binary.LittleEndian and binary.BigEndian.
-var NativeEndian binary.ByteOrder
+var nativeEndian binary.ByteOrder
 
 func init() {
 	data := []byte{0, 1, 2, 3, 4, 5, 6, 7}
 	switch binary.NativeEndian.Uint64(data) {
 	case binary.LittleEndian.Uint64(data):
-		NativeEndian = binary.LittleEndian
+		nativeEndian = binary.LittleEndian
 	case binary.BigEndian.Uint64(data):
-		NativeEndian = binary.BigEndian
+		nativeEndian = binary.BigEndian
 	default:
 		panic("unsupported byte order")
 	}
@@ -128,7 +128,7 @@ func (p binaryEncodePlan) Encode(value any, buf []byte) (newBuf []byte, err erro
 	if !ok {
 		return buf, errors.ErrUnsupported
 	}
-	data, err := ewkb.Marshal(g, NativeEndian)
+	data, err := ewkb.Marshal(g, nativeEndian)
 	if err != nil {
 		return buf, err
 	}
@@ -141,7 +141,7 @@ func (p textEncodePlan) Encode(value any, buf []byte) (newBuf []byte, err error)
 	if !ok {
 		return buf, errors.ErrUnsupported
 	}
-	data, err := ewkb.Marshal(g, NativeEndian)
+	data, err := ewkb.Marshal(g, nativeEndian)
 	if err != nil {
 		return buf, err
 	}
