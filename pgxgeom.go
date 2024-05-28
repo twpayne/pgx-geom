@@ -154,6 +154,10 @@ func (p binaryScanPlan) Scan(src []byte, target any) error {
 	if !ok {
 		return errors.ErrUnsupported
 	}
+	if len(src) == 0 {
+		*pg = nil
+		return nil
+	}
 	g, err := ewkb.Unmarshal(src)
 	if err != nil {
 		return err
@@ -167,6 +171,10 @@ func (p textScanPlan) Scan(src []byte, target any) error {
 	pg, ok := target.(*geom.T)
 	if !ok {
 		return errors.ErrUnsupported
+	}
+	if len(src) == 0 {
+		*pg = nil
+		return nil
 	}
 	var err error
 	src, err = hex.DecodeString(string(src))
