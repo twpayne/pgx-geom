@@ -109,7 +109,7 @@ func TestCodecScanValue(t *testing.T) {
 				var geom geom.T
 				err := conn.QueryRow(ctx, "select ST_SetSRID('POINT(1 2)'::geometry, 4326)", pgx.QueryResultFormats{format}).Scan(&geom)
 				assert.NoError(t, err)
-				// assert.Equal(t, mustNewGeomFromWKT(t, "POINT(1 2)", 4326).SetSRID(4326).ToEWKBWithSRID(), geom.ToEWKBWithSRID())
+				assert.Equal(t, mustNewGeomFromWKT(t, "POINT(1 2)", 4326), geom)
 			})
 		}
 	})
