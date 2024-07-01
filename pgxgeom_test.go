@@ -3,6 +3,7 @@ package pgxgeom_test
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"strconv"
 	"testing"
 
@@ -72,7 +73,33 @@ func TestCodecDecodeNullValue(t *testing.T) {
 				tb.Helper()
 
 				rows, err := conn.Query(ctx, "select NULL::geometry AS geom", pgx.QueryResultFormats{format})
-				assert.NoError(tb, err)
+				assert.NoError(t, err)
+
+				value, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[s])
+				assert.NoError(t, err)
+				assert.Zero(t, value)
+			})
+		}
+	})
+}
+
+func TestCodecDecodeNullValuePolymorphic(t *testing.T) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, tb testing.TB, conn *pgx.Conn) {
+		tb.Helper()
+
+		type s struct {
+			Geom *geom.Point `db:"geom"`
+		}
+
+		for _, format := range []int16{
+			pgx.BinaryFormatCode,
+			pgx.TextFormatCode,
+		} {
+			tb.(*testing.T).Run(strconv.Itoa(int(format)), func(t *testing.T) {
+				tb.Helper()
+
+				rows, err := conn.Query(ctx, "select NULL::geometry AS geom", pgx.QueryResultFormats{format})
+				assert.NoError(t, err)
 
 				value, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[s])
 				assert.NoError(t, err)
@@ -110,6 +137,88 @@ func TestCodecScanValue(t *testing.T) {
 				err := conn.QueryRow(ctx, "select ST_SetSRID('POINT(1 2)'::geometry, 4326)", pgx.QueryResultFormats{format}).Scan(&geom)
 				assert.NoError(t, err)
 				assert.Equal(t, mustNewGeomFromWKT(t, "POINT(1 2)", 4326), geom)
+			})
+		}
+	})
+}
+
+func TestCodecScanValuePolymorphic(t *testing.T) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, tb testing.TB, conn *pgx.Conn) {
+		tb.Helper()
+		for _, format := range []int16{
+			pgx.BinaryFormatCode,
+			pgx.TextFormatCode,
+		} {
+			tb.(*testing.T).Run(strconv.Itoa(int(format)), func(t *testing.T) {
+				var point geom.Point
+				var polygon geom.Polygon
+				var err error
+				query := "select ST_SetSRID('POLYGON((0 0,1 0,1 1,0 1,0 0))'::geometry, 4326)"
+
+				err = conn.QueryRow(ctx, query, pgx.QueryResultFormats{format}).Scan(&polygon)
+				assert.NoError(t, err)
+				assert.Equal(t, mustNewGeomFromWKT(t, "POLYGON((0 0,1 0,1 1,0 1,0 0))", 4326), geom.T(&polygon))
+
+				err = conn.QueryRow(ctx, query, pgx.QueryResultFormats{format}).Scan(&point)
+				assert.EqualError(t, err, "can't scan into dest[0]: pgxgeom: got *geom.Polygon, want *geom.Point")
+			})
+		}
+	})
+}
+
+type CustomPoint struct {
+	*geom.Point
+}
+
+var errCustomPointScan = errors.New("invalid target for CustomPoint")
+
+func (c *CustomPoint) ScanGeom(v geom.T) error {
+	concrete, ok := v.(*geom.Point)
+	if !ok {
+		return errCustomPointScan
+	}
+	c.Point = concrete
+	return nil
+}
+
+func (c *CustomPoint) GeomValue() (geom.T, error) {
+	return c.Point, nil
+}
+
+func TestCodecEncodeValueCustom(t *testing.T) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, tb testing.TB, conn *pgx.Conn) {
+		tb.Helper()
+		point := CustomPoint{geom.NewPointFlat(geom.XY, []float64{1, 2}).SetSRID(4326)}
+
+		var bytes []byte
+		err := conn.QueryRow(ctx, "select $1::geometry::bytea", &point).Scan(&bytes)
+		assert.NoError(t, err)
+
+		g, err := ewkb.Unmarshal(bytes)
+		assert.NoError(t, err)
+		assert.Equal(t, mustNewGeomFromWKT(t, "POINT(1 2)", 4326), g)
+	})
+}
+
+func TestCodecScanValueCustom(t *testing.T) {
+	defaultConnTestRunner.RunTest(context.Background(), t, func(ctx context.Context, tb testing.TB, conn *pgx.Conn) {
+		tb.Helper()
+		for _, format := range []int16{
+			pgx.BinaryFormatCode,
+			pgx.TextFormatCode,
+		} {
+			tb.(*testing.T).Run(strconv.Itoa(int(format)), func(t *testing.T) {
+				var point CustomPoint
+				var err error
+				pointQuery := "select ST_SetSRID('POINT(1 2)'::geometry, 4326)"
+				polygonQuery := "select ST_SetSRID('POLYGON((0 0,1 0,1 1,0 1,0 0))'::geometry, 4326)"
+
+				err = conn.QueryRow(ctx, pointQuery, pgx.QueryResultFormats{format}).Scan(&point)
+				assert.NoError(t, err)
+				assert.Equal(t, mustNewGeomFromWKT(t, "POINT(1 2)", 4326), geom.T(point.Point))
+
+				err = conn.QueryRow(ctx, polygonQuery, pgx.QueryResultFormats{format}).Scan(&point)
+				assert.EqualError(t, err, "can't scan into dest[0]: invalid target for CustomPoint")
 			})
 		}
 	})

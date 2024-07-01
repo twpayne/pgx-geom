@@ -46,7 +46,6 @@ linters:
   - inamedparam
   - ineffassign
   - interfacebloat
-  - ireturn
   - loggercheck
   - makezero
   - mirror
@@ -81,7 +80,6 @@ linters:
   - tparallel
   - typecheck
   - unconvert
-  - unparam
   - unused
   - usestdlibvars
   - wastedassign
