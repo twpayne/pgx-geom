@@ -177,7 +177,7 @@ func TestCodecScanValuePolymorphic(t *testing.T) {
 				assert.Equal(t, mustNewGeomFromWKT(t, "POLYGON((0 0,1 0,1 1,0 1,0 0))", 4326), geom.T(&polygon))
 
 				err = conn.QueryRow(ctx, query, pgx.QueryResultFormats{format}).Scan(&point)
-				assert.EqualError(t, err, "can't scan into dest[0]: pgxgeom: got *geom.Polygon, want *geom.Point")
+				assert.EqualError(t, err, "can't scan into dest[0] (col: st_setsrid): pgxgeom: got *geom.Polygon, want *geom.Point")
 			})
 		}
 	})
@@ -235,7 +235,7 @@ func TestCodecScanValueCustom(t *testing.T) {
 				assert.Equal(t, mustNewGeomFromWKT(t, "POINT(1 2)", 4326), geom.T(point.Point))
 
 				err = conn.QueryRow(ctx, polygonQuery, pgx.QueryResultFormats{format}).Scan(&point)
-				assert.EqualError(t, err, "can't scan into dest[0]: invalid target for CustomPoint")
+				assert.EqualError(t, err, "can't scan into dest[0] (col: st_setsrid): invalid target for CustomPoint")
 			})
 		}
 	})
